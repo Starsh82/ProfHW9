@@ -95,4 +95,71 @@ root@ubuntu24-empty:~# systemctl status spawn-fcgi.service
 ```
 root@ubuntu24-prof4:~# apt update; apt upgrade -y; apt install nginx -y
 ```
-Изменяем конфигурацию nginx. Файлы конфигурации:
+Изменяем конфигурацию nginx. Файлы конфигурации:  
+[/etc/nginx/nginx-first.conf](nginx/nginx-first.conf); 
+[/etc/nginx/sites-available/nginx-first](nginx/nginx-first); 
+[/etc/nginx/nginx-second.conf](nginx/nginx-second.conf); 
+[/etc/nginx/sites-available/nginx-second](nginx/nginx-second)  
+  
+Создаём новый мультисервис:  
+[/etc/systemd/system/nginx@.service](nginx/nginx@.service)  
+
+Проверяем работу сервисов nginx:  
+```
+root@ubuntu24-prof4:/etc/nginx# systemctl daemon-reload
+root@ubuntu24-prof4:/etc/nginx# systemctl start nginx@first
+root@ubuntu24-prof4:/etc/nginx# systemctl start nginx@second
+root@ubuntu24-prof4:/etc/nginx# systemctl status nginx@first
+● nginx@first.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (;;file://ubuntu24-prof4/etc/systemd/system/nginx@.service/etc/systemd/system/nginx@.service;;; disabled; preset: enabled)
+     Active: active (running) since Sun 2025-08-31 21:16:54 UTC; 1h 9min ago
+       Docs: ;;man:nginx(8)man:nginx(8);;
+    Process: 2336 ExecStartPre=/usr/sbin/nginx -t -c /etc/nginx/nginx-first.conf -q -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+    Process: 2338 ExecStart=/usr/sbin/nginx -c /etc/nginx/nginx-first.conf -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+   Main PID: 2339 (nginx)
+      Tasks: 2 (limit: 2268)
+     Memory: 1.7M (peak: 1.9M)
+        CPU: 18ms
+     CGroup: /system.slice/system-nginx.slice/nginx@first.service
+             ├─2339 "nginx: master process /usr/sbin/nginx -c /etc/nginx/nginx-first.conf -g daemon on; master_process on;"
+             └─2340 "nginx: worker process"
+
+авг 31 21:16:54 ubuntu24-prof4 systemd[1]: Starting nginx@first.service - A high performance web server and a reverse proxy server...
+авг 31 21:16:54 ubuntu24-prof4 systemd[1]: Started nginx@first.service - A high performance web server and a reverse proxy server.
+root@ubuntu24-prof4:/etc/nginx# systemctl status nginx@second.service
+● nginx@second.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (;;file://ubuntu24-prof4/etc/systemd/system/nginx@.service/etc/systemd/system/nginx@.service;;; disabled; preset: enabled)
+     Active: active (running) since Sun 2025-08-31 21:17:01 UTC; 26s ago
+       Docs: ;;man:nginx(8)man:nginx(8);;
+    Process: 2344 ExecStartPre=/usr/sbin/nginx -t -c /etc/nginx/nginx-second.conf -q -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+    Process: 2345 ExecStart=/usr/sbin/nginx -c /etc/nginx/nginx-second.conf -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+   Main PID: 2347 (nginx)
+      Tasks: 2 (limit: 2268)
+     Memory: 1.7M (peak: 1.9M)
+        CPU: 21ms
+     CGroup: /system.slice/system-nginx.slice/nginx@second.service
+             ├─2347 "nginx: master process /usr/sbin/nginx -c /etc/nginx/nginx-second.conf -g daemon on; master_process on;"
+             └─2348 "nginx: worker process"
+
+авг 31 21:17:01 ubuntu24-prof4 systemd[1]: Starting nginx@second.service - A high performance web server and a reverse proxy server...
+авг 31 21:17:01 ubuntu24-prof4 systemd[1]: Started nginx@second.service - A high performance web server and a reverse proxy server.
+root@ubuntu24-prof4:/etc/nginx# ss -tulpn
+Netid         State          Recv-Q         Send-Q                        Local Address:Port                  Peer Address:Port         Process
+udp           UNCONN         0              0                                127.0.0.54:53                         0.0.0.0:*             users:(("systemd-resolve",pid=563,fd=16))
+udp           UNCONN         0              0                             127.0.0.53%lo:53                         0.0.0.0:*             users:(("systemd-resolve",pid=563,fd=14))
+udp           UNCONN         0              0                      192.168.0.116%enp0s8:68                         0.0.0.0:*             users:(("systemd-network",pid=558,fd=26))
+udp           UNCONN         0              0                          10.0.2.15%enp0s3:68                         0.0.0.0:*             users:(("systemd-network",pid=558,fd=23))
+tcp           LISTEN         0              4096                             127.0.0.54:53                         0.0.0.0:*             users:(("systemd-resolve",pid=563,fd=17))
+tcp           LISTEN         0              511                                 0.0.0.0:8081                       0.0.0.0:*             users:(("nginx",pid=2348,fd=5),("nginx",pid=2347,fd=5))
+tcp           LISTEN         0              511                                 0.0.0.0:8080                       0.0.0.0:*             users:(("nginx",pid=2340,fd=5),("nginx",pid=2339,fd=5))
+tcp           LISTEN         0              4096                                0.0.0.0:22                         0.0.0.0:*             users:(("sshd",pid=917,fd=3),("systemd",pid=1,fd=147))
+tcp           LISTEN         0              4096                          127.0.0.53%lo:53                         0.0.0.0:*             users:(("systemd-resolve",pid=563,fd=15))
+tcp           LISTEN         0              4096                                   [::]:22                            [::]:*             users:(("sshd",pid=917,fd=4),("systemd",pid=1,fd=150))
+root@ubuntu24-prof4:/etc/nginx# ps afx | grep nginx
+   2373 pts/1    S+     0:00  |                       \_ grep --color=auto nginx
+   1925 pts/3    S+     0:00                          \_ nano nginx.conf
+   2339 ?        Ss     0:00 nginx: master process /usr/sbin/nginx -c /etc/nginx/nginx-first.conf -g daemon on; master_process on;
+   2340 ?        S      0:00  \_ nginx: worker process
+   2347 ?        Ss     0:00 nginx: master process /usr/sbin/nginx -c /etc/nginx/nginx-second.conf -g daemon on; master_process on;
+   2348 ?        S      0:00  \_ nginx: worker process
+```
